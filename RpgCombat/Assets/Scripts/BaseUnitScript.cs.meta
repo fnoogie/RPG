@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d08d6d9b8a1aa8a46a95b6c24c022288
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - combatManager: {instanceID: 0}
+  - healthbar: {instanceID: 0}
+  - targetingArrow: {fileID: 2798405640876793994, guid: 91a55ecbd0def53448b8ffbbd5163751, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
