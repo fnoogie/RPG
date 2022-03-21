@@ -772,7 +772,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6a538158172baa747bd3ecdf60b9720a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  spinX: 0.1
+  spinX: 0.01
   spinY: 0
   spinZ: 0
 --- !u!1001 &271517408
