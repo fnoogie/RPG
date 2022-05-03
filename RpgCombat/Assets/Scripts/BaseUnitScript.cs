@@ -38,10 +38,12 @@ public class BaseUnitScript : MonoBehaviour
 
 
     [Tooltip("The base stats of the unit")]
-    public float Health = 100, Speed = 1, Damage = 5, Defense = 2;
+    public float Health = 100, Mana = 100, Speed = 1, Damage = 5, Defense = 2, Int = 5;
 
     [Tooltip("The healthbar GameObject this unit will connect to")]
     public GameObject healthbar;
+    public GameObject manabar;
+    Slider manaSlider;
     [Tooltip("The bar GameObject to track this units speed")]
     public GameObject turnbar;
     Slider turnSlider;
@@ -58,6 +60,7 @@ public class BaseUnitScript : MonoBehaviour
     public List<string> Actions;
     int actionSelection = 0;
     bool actionSelected = false;
+    bool delayed = false;
 
     [HideInInspector]
     public bool managedOTEffects = false;
@@ -76,6 +79,7 @@ public class BaseUnitScript : MonoBehaviour
         targetingArrow.SetActive(targeted);
 
         turnSlider = turnbar.GetComponent<Slider>();
+        manaSlider = manabar.GetComponent<Slider>();
         Actions.Add("Attack");
         UnitAbility theAbility;
         if (gameObject.TryGetComponent<UnitAbility>(out theAbility) != false)
@@ -109,185 +113,200 @@ public class BaseUnitScript : MonoBehaviour
 
         //update the unit's turn tracker bar
         turnSlider.value = turnTracker;
+        manaSlider.value = Mana;
 
-        if(myTurn && Health > 0 && !managedOTEffects && OverTimeEffects.Count > 0)
+        if(myTurn && Health > 0 && !managedOTEffects)
             manageOTEffects();
 
-        if (myTurn && Health > 0 && actionDone == false && decisionMade == false)
-        {            
-            gameObject.transform.localScale = new Vector3(90, 90, 90);
-            if(isPlayer && playerControlled)
-            {
-                //check if an action has been selected
-                if(!actionSelected)
-                {
-                    if (Input.GetKeyDown(KeyCode.W))
-                    {
-                        actionSelection--;
-                    }
-                    else if (Input.GetKeyDown(KeyCode.S))
-                    {
-                        actionSelection++;
-                    }
-                    actionSelection = (int)loopClamp(actionSelection, 0, Actions.Count - 1);
-                    upperAction.GetComponent<TextMeshProUGUI>().color = new Color(upperAction.GetComponent<TextMeshProUGUI>().color.r, upperAction.GetComponent<TextMeshProUGUI>().color.g, upperAction.GetComponent<TextMeshProUGUI>().color.b, .7f);
-                    currentAction.GetComponent<TextMeshProUGUI>().color = new Color(currentAction.GetComponent<TextMeshProUGUI>().color.r, currentAction.GetComponent<TextMeshProUGUI>().color.g, currentAction.GetComponent<TextMeshProUGUI>().color.b, 1);
-                    lowerAction.GetComponent<TextMeshProUGUI>().color = new Color(lowerAction.GetComponent<TextMeshProUGUI>().color.r, lowerAction.GetComponent<TextMeshProUGUI>().color.g, lowerAction.GetComponent<TextMeshProUGUI>().color.b, .7f);
+        Mana = Mathf.Clamp(Mana, 0, 100);
 
-                    upperAction.text = Actions[(int)loopClamp(actionSelection - 1, 0, Actions.Count-1)];
-                    currentAction.text = Actions[actionSelection];
-                    lowerAction.text = Actions[(int)loopClamp(actionSelection + 1, 0, Actions.Count-1)];
-                    if (Input.GetKeyDown(KeyCode.E))
-                    {
-                        actionSelected = true;
-                        upperAction.GetComponent<TextMeshProUGUI>().color = new Color(upperAction.GetComponent<TextMeshProUGUI>().color.r, upperAction.GetComponent<TextMeshProUGUI>().color.g, upperAction.GetComponent<TextMeshProUGUI>().color.b, 0);
-                        currentAction.GetComponent<TextMeshProUGUI>().color = new Color(currentAction.GetComponent<TextMeshProUGUI>().color.r, currentAction.GetComponent<TextMeshProUGUI>().color.g, currentAction.GetComponent<TextMeshProUGUI>().color.b, 0);
-                        lowerAction.GetComponent<TextMeshProUGUI>().color = new Color(lowerAction.GetComponent<TextMeshProUGUI>().color.r, lowerAction.GetComponent<TextMeshProUGUI>().color.g, lowerAction.GetComponent<TextMeshProUGUI>().color.b, 0);
-                    }
-                }
-                else
+        if (myTurn && Health > 0 && actionDone == false && decisionMade == false)
+        {
+            gameObject.transform.localScale = new Vector3(90, 90, 90);
+            if (!delayed && !playerControlled)
+                StartCoroutine(delay());
+            else
+            {
+                if (isPlayer && playerControlled)
                 {
-                    //if 'Attack' is selected
-                    if (actionSelection == 0)
+                    //check if an action has been selected
+                    if (!actionSelected)
                     {
                         if (Input.GetKeyDown(KeyCode.W))
                         {
-                            combatManager.enemies[target].targeted = false;
-                            target--;
+                            actionSelection--;
                         }
                         else if (Input.GetKeyDown(KeyCode.S))
                         {
-                            combatManager.enemies[target].targeted = false;
-                            target++;
+                            actionSelection++;
                         }
-                        target = (int)loopClamp(target, 0, combatManager.enemies.Count - 1);
-                        combatManager.enemies[target].targeted = true;
+                        actionSelection = (int)loopClamp(actionSelection, 0, Actions.Count - 1);
+                        upperAction.GetComponent<TextMeshProUGUI>().color = new Color(upperAction.GetComponent<TextMeshProUGUI>().color.r, upperAction.GetComponent<TextMeshProUGUI>().color.g, upperAction.GetComponent<TextMeshProUGUI>().color.b, .7f);
+                        currentAction.GetComponent<TextMeshProUGUI>().color = new Color(currentAction.GetComponent<TextMeshProUGUI>().color.r, currentAction.GetComponent<TextMeshProUGUI>().color.g, currentAction.GetComponent<TextMeshProUGUI>().color.b, 1);
+                        lowerAction.GetComponent<TextMeshProUGUI>().color = new Color(lowerAction.GetComponent<TextMeshProUGUI>().color.r, lowerAction.GetComponent<TextMeshProUGUI>().color.g, lowerAction.GetComponent<TextMeshProUGUI>().color.b, .7f);
+
+                        upperAction.text = Actions[(int)loopClamp(actionSelection - 1, 0, Actions.Count - 1)];
+                        currentAction.text = Actions[actionSelection];
+                        lowerAction.text = Actions[(int)loopClamp(actionSelection + 1, 0, Actions.Count - 1)];
                         if (Input.GetKeyDown(KeyCode.E))
-                            confirmAction(Actions[actionSelection], combatManager.enemies[target]);
+                        {
+                            actionSelected = true;
+                            upperAction.GetComponent<TextMeshProUGUI>().color = new Color(upperAction.GetComponent<TextMeshProUGUI>().color.r, upperAction.GetComponent<TextMeshProUGUI>().color.g, upperAction.GetComponent<TextMeshProUGUI>().color.b, 0);
+                            currentAction.GetComponent<TextMeshProUGUI>().color = new Color(currentAction.GetComponent<TextMeshProUGUI>().color.r, currentAction.GetComponent<TextMeshProUGUI>().color.g, currentAction.GetComponent<TextMeshProUGUI>().color.b, 0);
+                            lowerAction.GetComponent<TextMeshProUGUI>().color = new Color(lowerAction.GetComponent<TextMeshProUGUI>().color.r, lowerAction.GetComponent<TextMeshProUGUI>().color.g, lowerAction.GetComponent<TextMeshProUGUI>().color.b, 0);
+                        }
                     }
-                    //if 'Pass' is selected
-                    else if (actionSelection == Actions.Count-1)
-                        confirmAction(Actions[actionSelection], this);
-                    //if any custom ability is selected
                     else
                     {
-                        UnitAbility ability = customAbilities[actionSelection - 1];
-                        switch(ability.AbilityTarget)
+                        //if 'Attack' is selected
+                        if (actionSelection == 0)
                         {
-                            case Targeting.Self:
-                                {
-                                    this.targeted = true;
+                            if (Input.GetKeyDown(KeyCode.W))
+                            {
+                                combatManager.enemies[target].targeted = false;
+                                target--;
+                            }
+                            else if (Input.GetKeyDown(KeyCode.S))
+                            {
+                                combatManager.enemies[target].targeted = false;
+                                target++;
+                            }
+                            target = (int)loopClamp(target, 0, combatManager.enemies.Count - 1);
+                            combatManager.enemies[target].targeted = true;
+                            if (Input.GetKeyDown(KeyCode.E))
+                                confirmAction(Actions[actionSelection], combatManager.enemies[target]);
+                        }
+                        //if 'Pass' is selected
+                        else if (actionSelection == Actions.Count - 1)
+                            confirmAction(Actions[actionSelection], this);
+                        //if any custom ability is selected
+                        else
+                        {
+                            UnitAbility ability = customAbilities[actionSelection - 1];
 
-                                    if (Input.GetKeyDown(KeyCode.E))
-                                        confirmAction(ability, this);
-                                    break;
-                                }
-                            case Targeting.Ally:
-                                {
-                                    if (Input.GetKeyDown(KeyCode.W))
+                            if (Mana - ability.ManaCost < 0)
+                            {
+                                Destroy(ability);
+                                actionSelected = false;
+                                return;
+                            }
+                            switch (ability.AbilityTarget)
+                            {
+                                case Targeting.Self:
                                     {
-                                        combatManager.players[target].targeted = false;
-                                        target--;
+                                        this.targeted = true;
+
+                                        if (Input.GetKeyDown(KeyCode.E))
+                                            confirmAction(ability, this);
+                                        break;
                                     }
-                                    else if (Input.GetKeyDown(KeyCode.S))
+                                case Targeting.Ally:
                                     {
-                                        combatManager.players[target].targeted = false;
-                                        target++;
-                                    }
-                                    target = (int)loopClamp(target, 0, combatManager.enemies.Count - 1);
-                                    combatManager.players[target].targeted = true;
-
-                                    if (Input.GetKeyDown(KeyCode.E))
-                                        confirmAction(ability, combatManager.players[target]);
-                                    break;
-                                }
-                            case Targeting.AllAllies:
-                                {
-                                    foreach (BaseUnitScript unit in combatManager.players)
-                                        unit.targeted = true;
-
-                                    if (Input.GetKeyDown(KeyCode.E))
-                                        confirmAction(ability,combatManager.players);
-                                    break;
-                                }
-                            case Targeting.Enemy:
-                                {
-                                    if (Input.GetKeyDown(KeyCode.W))
-                                    {
-                                        combatManager.enemies[target].targeted = false;
-                                        target--;
-                                    }
-                                    else if (Input.GetKeyDown(KeyCode.S))
-                                    {
-                                        combatManager.enemies[target].targeted = false;
-                                        target++;
-                                    }
-                                    target = (int)loopClamp(target, 0, combatManager.enemies.Count - 1);
-                                    combatManager.enemies[target].targeted = true;
-
-                                    if (Input.GetKeyDown(KeyCode.E))
-                                        confirmAction(ability, combatManager.enemies[target]);
-                                    break;
-                                }
-                            case Targeting.AllEnemies:
-                                {
-                                    foreach (BaseUnitScript unit in combatManager.enemies)
-                                        unit.targeted = true;
-
-                                    if (Input.GetKeyDown(KeyCode.E))
-                                        confirmAction(ability, combatManager.enemies);
-                                    break;
-                                }
-                            case Targeting.AllExceptCaster:
-                                { 
-                                    List<BaseUnitScript> allButMe = new List<BaseUnitScript>();
-                                    foreach (BaseUnitScript unit in combatManager.unitsInCombat)
-                                    {
-                                        if (unit != this)
+                                        if (Input.GetKeyDown(KeyCode.W))
                                         {
-                                            allButMe.Add(unit);
-                                            unit.targeted = true;
+                                            combatManager.players[target].targeted = false;
+                                            target--;
                                         }
+                                        else if (Input.GetKeyDown(KeyCode.S))
+                                        {
+                                            combatManager.players[target].targeted = false;
+                                            target++;
+                                        }
+                                        target = (int)loopClamp(target, 0, combatManager.enemies.Count - 1);
+                                        combatManager.players[target].targeted = true;
+
+                                        if (Input.GetKeyDown(KeyCode.E))
+                                            confirmAction(ability, combatManager.players[target]);
+                                        break;
                                     }
+                                case Targeting.AllAllies:
+                                    {
+                                        foreach (BaseUnitScript unit in combatManager.players)
+                                            unit.targeted = true;
 
-                                    if (Input.GetKeyDown(KeyCode.E))
-                                        confirmAction(ability, allButMe);
-                                    break;
-                                }
-                            case Targeting.AllUnits:
-                                {
-                                    foreach (BaseUnitScript unit in combatManager.unitsInCombat)
-                                        unit.targeted = true;
+                                        if (Input.GetKeyDown(KeyCode.E))
+                                            confirmAction(ability, combatManager.players);
+                                        break;
+                                    }
+                                case Targeting.Enemy:
+                                    {
+                                        if (Input.GetKeyDown(KeyCode.W))
+                                        {
+                                            combatManager.enemies[target].targeted = false;
+                                            target--;
+                                        }
+                                        else if (Input.GetKeyDown(KeyCode.S))
+                                        {
+                                            combatManager.enemies[target].targeted = false;
+                                            target++;
+                                        }
+                                        target = (int)loopClamp(target, 0, combatManager.enemies.Count - 1);
+                                        combatManager.enemies[target].targeted = true;
 
-                                    if (Input.GetKeyDown(KeyCode.E))
-                                        confirmAction(ability, combatManager.unitsInCombat);
-                                    break;
-                                }
+                                        if (Input.GetKeyDown(KeyCode.E))
+                                            confirmAction(ability, combatManager.enemies[target]);
+                                        break;
+                                    }
+                                case Targeting.AllEnemies:
+                                    {
+                                        foreach (BaseUnitScript unit in combatManager.enemies)
+                                            unit.targeted = true;
+
+                                        if (Input.GetKeyDown(KeyCode.E))
+                                            confirmAction(ability, combatManager.enemies);
+                                        break;
+                                    }
+                                case Targeting.AllExceptCaster:
+                                    {
+                                        List<BaseUnitScript> allButMe = new List<BaseUnitScript>();
+                                        foreach (BaseUnitScript unit in combatManager.unitsInCombat)
+                                        {
+                                            if (unit != this)
+                                            {
+                                                allButMe.Add(unit);
+                                                unit.targeted = true;
+                                            }
+                                        }
+
+                                        if (Input.GetKeyDown(KeyCode.E))
+                                            confirmAction(ability, allButMe);
+                                        break;
+                                    }
+                                case Targeting.AllUnits:
+                                    {
+                                        foreach (BaseUnitScript unit in combatManager.unitsInCombat)
+                                            unit.targeted = true;
+
+                                        if (Input.GetKeyDown(KeyCode.E))
+                                            confirmAction(ability, combatManager.unitsInCombat);
+                                        break;
+                                    }
+                            }
+
                         }
 
-                    }
-
-                    if (Input.GetKeyDown(KeyCode.Q))
-                    {
-                        foreach (BaseUnitScript unit in combatManager.unitsInCombat)
-                            unit.targeted = false;
-                        actionSelected = false;
+                        if (Input.GetKeyDown(KeyCode.Q))
+                        {
+                            foreach (BaseUnitScript unit in combatManager.unitsInCombat)
+                                unit.targeted = false;
+                            actionSelected = false;
+                        }
                     }
                 }
-            }
-            //allies actions in combat
-            else if(isPlayer)
-            {
-                int randomTarget = Random.Range(0, combatManager.enemies.Count);
-                confirmAction(Actions[actionSelection],combatManager.enemies[randomTarget]);
+                //allies actions in combat
+                else if (isPlayer)
+                {
+                    int randomTarget = Random.Range(0, combatManager.enemies.Count);
+                    confirmAction(Actions[actionSelection], combatManager.enemies[randomTarget]);
 
-            }
-            //enemy actions in combat
-            else
-            {
-                int randomTarget = Random.Range(0, combatManager.players.Count);
-                confirmAction("Attack", combatManager.players[randomTarget]);
-                myTurn = false;
+                }
+                //enemy actions in combat
+                else
+                {
+                    int randomTarget = Random.Range(0, combatManager.players.Count);
+                    confirmAction("Attack", combatManager.players[randomTarget]);
+                    myTurn = false;
+                }
             }
         }
     }
@@ -307,10 +326,12 @@ public class BaseUnitScript : MonoBehaviour
         actionSelected = false;
         actionSelection = 0;
         actionDone = true;
+        delayed = false;
     }
 
     void confirmAction(UnitAbility ability, BaseUnitScript unit, bool firstCall = true)
     {
+        
         switch (ability.StatAffected)
         {
             case StatEffect.Health:
@@ -466,39 +487,14 @@ public class BaseUnitScript : MonoBehaviour
         }
 
         //check if ability applies an OT
-        if (ability.OverTimeEffect && firstCall)
+        if (firstCall)
         {
-            switch (ability.OTTarget)
+            Mana -= ability.ManaCost;
+            if (ability.OverTimeEffect)
             {
-                case OTTargeting.Caster:
-                    {
-                        OverTimeEffect effect = new OverTimeEffect();
-                        effect.effectName = ability.AbilityName;
-                        effect.duration = ability.OTDuration;
-                        effect.strength = ability.OTStrength;
-                        effect.effectScaling = ability.OTStrengthScaling;
-                        effect.statEffect = ability.OTStatEffect;
-                        effect.applyOnce = ability.applyOnce;
-                        effect.reverseAtEnd = ability.reverseAtEnd;
-                        this.OverTimeEffects.Add(effect);
-                        break;
-                    }
-                case OTTargeting.Target:
-                    {
-                        OverTimeEffect effect = new OverTimeEffect();
-                        effect.effectName = ability.AbilityName;
-                        effect.duration = ability.OTDuration;
-                        effect.strength = ability.OTStrength;
-                        effect.effectScaling = ability.OTStrengthScaling;
-                        effect.statEffect = ability.OTStatEffect;
-                        effect.applyOnce = ability.applyOnce;
-                        effect.reverseAtEnd = ability.reverseAtEnd;
-                        unit.OverTimeEffects.Add(effect);
-                        break;
-                    }
-                case OTTargeting.AllAllies:
-                    {
-                        foreach (BaseUnitScript ally in combatManager.players)
+                switch (ability.OTTarget)
+                {
+                    case OTTargeting.Caster:
                         {
                             OverTimeEffect effect = new OverTimeEffect();
                             effect.effectName = ability.AbilityName;
@@ -508,13 +504,10 @@ public class BaseUnitScript : MonoBehaviour
                             effect.statEffect = ability.OTStatEffect;
                             effect.applyOnce = ability.applyOnce;
                             effect.reverseAtEnd = ability.reverseAtEnd;
-                            ally.OverTimeEffects.Add(effect);
+                            this.OverTimeEffects.Add(effect);
+                            break;
                         }
-                        break;
-                    }
-                case OTTargeting.AllEnemies:
-                    {
-                        foreach (BaseUnitScript enemy in combatManager.enemies)
+                    case OTTargeting.Target:
                         {
                             OverTimeEffect effect = new OverTimeEffect();
                             effect.effectName = ability.AbilityName;
@@ -524,35 +517,67 @@ public class BaseUnitScript : MonoBehaviour
                             effect.statEffect = ability.OTStatEffect;
                             effect.applyOnce = ability.applyOnce;
                             effect.reverseAtEnd = ability.reverseAtEnd;
-                            enemy.OverTimeEffects.Add(effect);
+                            unit.OverTimeEffects.Add(effect);
+                            break;
                         }
-                        break;
-                    }
-                case OTTargeting.AllUnits:
-                    {
-                        foreach (BaseUnitScript baseUnit in combatManager.unitsInCombat)
+                    case OTTargeting.AllAllies:
                         {
-                            OverTimeEffect effect = new OverTimeEffect();
-                            effect.effectName = ability.AbilityName;
-                            effect.duration = ability.OTDuration;
-                            effect.strength = ability.OTStrength;
-                            effect.effectScaling = ability.OTStrengthScaling;
-                            effect.statEffect = ability.OTStatEffect;
-                            effect.applyOnce = ability.applyOnce;
-                            effect.reverseAtEnd = ability.reverseAtEnd;
-                            baseUnit.OverTimeEffects.Add(effect);
+                            foreach (BaseUnitScript ally in combatManager.players)
+                            {
+                                OverTimeEffect effect = new OverTimeEffect();
+                                effect.effectName = ability.AbilityName;
+                                effect.duration = ability.OTDuration;
+                                effect.strength = ability.OTStrength;
+                                effect.effectScaling = ability.OTStrengthScaling;
+                                effect.statEffect = ability.OTStatEffect;
+                                effect.applyOnce = ability.applyOnce;
+                                effect.reverseAtEnd = ability.reverseAtEnd;
+                                ally.OverTimeEffects.Add(effect);
+                            }
+                            break;
                         }
-                        break;
-                    }
+                    case OTTargeting.AllEnemies:
+                        {
+                            foreach (BaseUnitScript enemy in combatManager.enemies)
+                            {
+                                OverTimeEffect effect = new OverTimeEffect();
+                                effect.effectName = ability.AbilityName;
+                                effect.duration = ability.OTDuration;
+                                effect.strength = ability.OTStrength;
+                                effect.effectScaling = ability.OTStrengthScaling;
+                                effect.statEffect = ability.OTStatEffect;
+                                effect.applyOnce = ability.applyOnce;
+                                effect.reverseAtEnd = ability.reverseAtEnd;
+                                enemy.OverTimeEffects.Add(effect);
+                            }
+                            break;
+                        }
+                    case OTTargeting.AllUnits:
+                        {
+                            foreach (BaseUnitScript baseUnit in combatManager.unitsInCombat)
+                            {
+                                OverTimeEffect effect = new OverTimeEffect();
+                                effect.effectName = ability.AbilityName;
+                                effect.duration = ability.OTDuration;
+                                effect.strength = ability.OTStrength;
+                                effect.effectScaling = ability.OTStrengthScaling;
+                                effect.statEffect = ability.OTStatEffect;
+                                effect.applyOnce = ability.applyOnce;
+                                effect.reverseAtEnd = ability.reverseAtEnd;
+                                baseUnit.OverTimeEffects.Add(effect);
+                            }
+                            break;
+                        }
+                }
             }
         }
-
 
         combatManager.unitEndTurn();
         actionSelected = false;
         actionSelection = 0;
         actionDone = true;
         managedOTEffects = false;
+        delayed = false;
     }
     void confirmAction(UnitAbility ability, List<BaseUnitScript> actionTarget)
     {
@@ -568,6 +593,7 @@ public class BaseUnitScript : MonoBehaviour
         actionSelection = 0;
         actionDone = true;
         managedOTEffects = false;
+        delayed = false;
     }
 
 
@@ -580,6 +606,11 @@ public class BaseUnitScript : MonoBehaviour
         StartCoroutine(waitThenAttackAnimation(target.gameObject));
     }
 
+    IEnumerator delay()
+    {
+        yield return new WaitForSeconds(Random.Range(1,3));
+        delayed = true;
+    }
     IEnumerator waitThenAttackAnimation(GameObject target)
     {
         yield return new WaitForSeconds(Random.Range(2, 5));
@@ -678,7 +709,11 @@ public class BaseUnitScript : MonoBehaviour
 
     void manageOTEffects()
     {
-        
+        Mana += Int;
+
+        if (OverTimeEffects.Count < 0)
+            return;
+
         for (int i = 0; i < OverTimeEffects.Count; ++i)
         {
             if (!OverTimeEffects[i].applyOnce || (OverTimeEffects[i].applyOnce && !OverTimeEffects[i].applied))

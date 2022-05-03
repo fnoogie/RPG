@@ -27,6 +27,7 @@ public enum StatEffect
     Speed,
     Damage,
     Defense,
+    Mana,
     CurrentTurnTracker
 };
 
@@ -44,6 +45,8 @@ public class UnitAbility : MonoBehaviour
     public string AbilityName;
     [Tooltip("What the ability targets")]
     public Targeting AbilityTarget;
+    [Tooltip("Mana cost of this ability")]
+    public float ManaCost;
 
     [Header("Initial Hit")]
     [Tooltip("What stat to affect\n" +
